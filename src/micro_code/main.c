@@ -39,14 +39,14 @@ void nano_wait(unsigned int n) {
 
 void enable_ports(){
     RCC->AHBENR |= RCC_AHBENR_GPIOBEN; // enables port B
-    RCC->AHBENR |= RCC_AHBENR_GPIOBEN; // enables port B
+    RCC->AHBENR |= RCC_AHBENR_GPIOCEN; // enables port B
 
-    GPIOB->MODER &= ~0x3F3; // set pins 0, 2, 3, 4 to inputs
-    GPIOB->PUPDR &= ~0xF0; // clear pins 2 and 3
-    GPIOB->PUPDR |= 0xA0; // enable pull down resistors for pins 2 and 3
+    GPIOC->MODER &= ~0x3F3; // set pins 0, 2, 3, 4 to inputs
+    GPIOC->PUPDR &= ~0xF0; // clear pins 2 and 3
+    GPIOC->PUPDR |= 0xA0; // enable pull down resistors for pins 2 and 3
 
-    GPIOB->MODER &= ~0xFF; // clear pins 0-3
-    GPIOB->MODER |= 0x55; // set pins 0-3 to output
+    GPIOB->MODER &= ~0xFFFFFF; // clear pins 0-23
+    GPIOB->MODER |= 0x555555; // set pins 0-23 to output
 }
 
 void init_exti() {
@@ -71,37 +71,44 @@ void init_exti() {
 }
 
 void update_pins(Char_c in, bool prev_raised[MAX_CELLS][6]) {
-    for(int i = 0; i < MAX_CELLS; i++) {
-        for(int j = 0; j < 6; j++) {
-            // put raised into pin 3
-        	if(prev_raised[i][j] == in.pinOut[j].raised) {
-        		continue;
-        	} else if(prev_raised[i][j] < in.pinOut[j].raised) {
-        		GPIOB->ODR &= ~0xF; // clears pins 0-3
-        		GPIOB->ODR |= ((1 << 3) | (j+1)); // raise pin i
-        	    nano_wait(2000000000); // wait 2 seconds
-        	    GPIOB->ODR &= ~0xF; // clears pins 0-3
+	int pin_vals[12] = {0};
+	int pin_out = 0;
+
+	for(int i = 0; i < MAX_CELLS; i++) {
+    	for(int j = 0; j < 6; j++) {
+        	if(prev_raised[i][j] == in.pinOut[j].raised) { // pin already raised or lower so no motor movement
+        		pin_vals[2*j] = 0;
+        		pin_vals[2*j+1]= 0;
+        	} else if(prev_raised[i][j] < in.pinOut[j].raised) { // raise pin case
+        	    pin_vals[2*j] = 1;
+        	    pin_vals[2*j+1]= 0;
+
         	    prev_raised[i][j] = in.pinOut[j].raised; // put raised into previous array
-        	} else {
-        		GPIOB->ODR &= ~0xF; // clears pins 0-3
-        	    GPIOB->ODR |= (0 << 3) | (j+1); // lower pin i
-        	    nano_wait(2000000000); // wait 2 seconds
-        	    GPIOB->ODR &= ~0xF; // clears pins 0-3
+        	} else { // lower pin case
+        	    pin_vals[2*j] = 0;
+        	    pin_vals[2*j+1]= 1;
+
         	    prev_raised[i][j] = in.pinOut[j].raised; // put raised into previous array
         	}
         }
+
+    	for(int i = 0; i < 12; i++) {
+    		pin_out |= (pin_vals[i] << i);
+    	}
+    	GPIOB->ODR &= ~0xFFFF;
+    	GPIOB->ODR |= pin_out;
     }
 }
 
 int main(void)
 {
 //    bool sample_a[6] = {1,0,0,0,0,0};
-    bool sample_n[6] = {1,0,1,1,1,0};
-//    bool sample_n[6] = {0,0,0,0,0,0};
+//    bool sample_n[6] = {1,0,1,1,1,0};
+    bool sample_n[6] = {0,0,0,0,0,0};
 //    bool sample_n[6] = {1,1,1,1,1,1};
 //	bool sample_n[6] = {1,0,1,0,1,0};
-    bool prev_raised[1][6] = {{0,0,0,0,0,0}};
-//    bool prev_raised[1][6] = {{1,1,1,1,1,1}};
+//    bool prev_raised[1][6] = {{0,0,0,0,0,0}};
+    bool prev_raised[1][6] = {{1,1,1,1,1,1}};
 //	bool prev_raised[1][6] = {{0,1,0,1,0,1}};
 //    char char_a = 'a';
     char char_n = 'n';
